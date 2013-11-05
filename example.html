@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Semantic-UI</title>
+    <link rel="stylesheet" href="build/build.css">
+  </head>
+  <body>
+    <div class="ui menu">
+      <a class="item" href="#">Home</a>
+      <a class="item" href="#">Inbox</a>
+      <a class="item ui dropdown">
+        <div class="text">Select</div>
+        <i class="dropdown icon"></i>
+        <div class="menu ui transition hidden">
+          <div class="item" data-value="option1">Option 1</div>
+          <div class="item" data-value="option2">Option 2</div>
+        </div>
+      </a>
+    </div>
+    <script src="build/build.js" charset="utf-8"></script>
+    <script type="text/javascript" charset="utf-8">
+      var $ = require('semantic-ui');
+      $('.dropdown').dropdown();
+    </script>
+  </body>
+</html>

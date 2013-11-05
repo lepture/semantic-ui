@@ -1,0 +1,40 @@
+{
+  "name": "semantic-ui",
+  "repo": "lepture/semantic-ui",
+  "description": "Semantic-UI as a component.",
+  "version": "0.0.1",
+  "keywords": [],
+  "dependencies": {
+    "component/jquery": "*"
+  },
+  "development": {},
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": [
+    "index.js"
+  ],
+  "styles": [
+    "semantic-ui.css"
+  ],
+  "images": [
+    "images/loader-large-inverted.gif",
+    "images/loader-medium-inverted.gif",
+    "images/loader-mini-inverted.gif",
+    "images/loader-small-inverted.gif",
+    "images/loader-large.gif",
+    "images/loader-medium.gif",
+    "images/loader-mini.gif",
+    "images/loader-small.gif"
+  ],
+  "fonts": [
+    "fonts/basic.icons.eot",
+    "fonts/basic.icons.svg",
+    "fonts/basic.icons.ttf",
+    "fonts/basic.icons.woff",
+    "fonts/icons.eot",
+    "fonts/icons.otf",
+    "fonts/icons.svg",
+    "fonts/icons.ttf",
+    "fonts/icons.woff"
+  ]
+}
