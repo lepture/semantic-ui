@@ -2,7 +2,7 @@
 
 Semantic-UI as a component.
 
-Find the original source: https://github.com/jlukic/Semantic-UI
+Find the original source: https://github.com/Semantic-Org/Semantic-UI
 
 ## Installation
 
