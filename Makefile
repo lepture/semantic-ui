@@ -5,7 +5,7 @@ build: components index.js semantic-ui.css
 components: component.json
 	@component install --dev
 
-baseurl=https://raw.github.com/Semantic-Org/Semantic-UI/master/build/packaged/
+baseurl=https://raw.githubusercontent.com/Semantic-Org/Semantic-UI/master/build/packaged/
 download:
 	curl ${baseurl}javascript/semantic.js -o index.js
 	curl ${baseurl}css/semantic.css -o semantic-ui.css

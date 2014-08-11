@@ -130,7 +130,10 @@ $.fn.accordion = function(parameters) {
           var
             $activeTitle     = $title.eq(index),
             $activeContent   = $activeTitle.next($content),
-            $previousTitle   = $activeTitle.siblings(selector.title).filter('.' + className.active),
+            $otherSections   = module.is.menu()
+              ? $activeTitle.parent().siblings(selector.item).find(selector.title)
+              : $activeTitle.siblings(selector.title),
+            $previousTitle   = $otherSections.filter('.' + className.active),
             $previousContent = $previousTitle.next($title),
             contentIsOpen    =  ($previousTitle.size() > 0)
           ;
@@ -206,7 +209,11 @@ $.fn.accordion = function(parameters) {
             })
           ;
         },
-
+        is: {
+          menu: function () {
+            return $module.hasClass(className.menu);
+          }
+        },
         setting: function(name, value) {
           if( $.isPlainObject(name) ) {
             $.extend(true, settings, name);
@@ -387,7 +394,7 @@ $.fn.accordion.settings = {
   name        : 'Accordion',
   namespace   : 'accordion',
 
-  debug       : true,
+  debug       : false,
   verbose     : true,
   performance : true,
 
@@ -406,12 +413,15 @@ $.fn.accordion.settings = {
   },
 
   className   : {
-    active : 'active'
+    active : 'active',
+    menu   : 'menu',
   },
 
   selector    : {
     title   : '.title',
-    content : '.content'
+    content : '.content',
+    menu    : '.menu',
+    item    : '.item',
   }
 
 
@@ -1442,12 +1452,10 @@ $.fn.form = function(fields, parameters) {
           ;
           $field
             .each(function() {
-              var  
+              var
                 type       = $(this).prop('type'),
                 inputEvent = module.get.changeEvent(type)
               ;
-              if(settings.inline == true) {
-              }
               $(this)
                 .on(inputEvent + eventNamespace, module.event.field.change)
               ;
@@ -1536,7 +1544,7 @@ $.fn.form = function(fields, parameters) {
 
         get: {
           changeEvent: function(type) {
-            if(type == 'checkbox' || type == 'radio') {
+            if(type == 'checkbox' || type == 'radio' || type == 'hidden') {
               return 'change';
             }
             else {
@@ -1972,7 +1980,7 @@ $.fn.form.settings = {
     group   : '.field',
     input   : 'input',
     prompt  : '.prompt',
-    submit  : '.submit'
+    submit  : '.submit:not([type="submit"])'
   },
 
   className : {
@@ -3390,8 +3398,7 @@ $.fn.chatroom = function(parameters) {
     }
   })
 ;
-
-  return (returnedValue)
+  return (returnedValue !== undefined)
     ? returnedValue
     : this
   ;
@@ -3706,11 +3713,13 @@ $.fn.checkbox = function(parameters) {
 
         toggle: function(event) {
           module.verbose('Determining new checkbox state');
-          if( module.is.disabled() ) {
-            module.enable();
-          }
-          else if( module.is.enabled() && module.can.disable() ) {
-            module.disable();
+          if( !$input.prop('disabled') ) {
+            if( module.is.disabled() ) {
+              module.enable();
+            }
+            else if( module.is.enabled() && module.can.disable() ) {
+              module.disable();
+            }
           }
         },
         setting: function(name, value) {
@@ -3893,8 +3902,8 @@ $.fn.checkbox.settings = {
   name        : 'Checkbox',
   namespace   : 'checkbox',
 
+  debug       : false,
   verbose     : true,
-  debug       : true,
   performance : true,
 
   // delegated event context
@@ -4467,7 +4476,7 @@ $.fn.dimmer.settings = {
   name        : 'Dimmer',
   namespace   : 'dimmer',
 
-  debug       : true,
+  debug       : false,
   verbose     : true,
   performance : true,
 
@@ -4585,6 +4594,7 @@ $.fn.dropdown = function(parameters) {
             module.bind.touchEvents();
           }
           module.bind.mouseEvents();
+          module.bind.keyboardEvents();
           module.instantiate();
         },
 
@@ -4608,6 +4618,15 @@ $.fn.dropdown = function(parameters) {
         },
 
         bind: {
+          keyboardEvents: function() {
+            module.debug('Binding keyboard events');
+            $module
+              .on('keydown' + eventNamespace, module.handleKeyboard)
+            ;
+            $module
+              .on('focus' + eventNamespace, module.show)
+            ;
+          },
           touchEvents: function() {
             module.debug('Touch device detected binding touch events');
             $module
@@ -4671,6 +4690,69 @@ $.fn.dropdown = function(parameters) {
           }
         },
 
+        handleKeyboard: function(event) {
+          var
+            $selectedItem = $item.filter('.' + className.selected),
+            pressedKey    = event.which,
+            keys          = {
+              enter     : 13,
+              escape    : 27,
+              upArrow   : 38,
+              downArrow : 40
+            },
+            selectedClass   = className.selected,
+            currentIndex    = $item.index( $selectedItem ),
+            hasSelectedItem = ($selectedItem.size() > 0),
+            resultSize      = $item.size(),
+            newIndex
+          ;
+          // close shortcuts
+          if(pressedKey == keys.escape) {
+            module.verbose('Escape key pressed, closing dropdown');
+            module.hide();
+          }
+          // result shortcuts
+          if(module.is.visible()) {
+            if(pressedKey == keys.enter && hasSelectedItem) {
+              module.verbose('Enter key pressed, choosing selected item');
+              $.proxy(module.event.item.click, $item.filter('.' + selectedClass) )(event);
+              event.preventDefault();
+              return false;
+            }
+            else if(pressedKey == keys.upArrow) {
+              module.verbose('Up key pressed, changing active item');
+              newIndex = (currentIndex - 1 < 0)
+                ? currentIndex
+                : currentIndex - 1
+              ;
+              $item
+                .removeClass(selectedClass)
+                .eq(newIndex)
+                  .addClass(selectedClass)
+              ;
+              event.preventDefault();
+            }
+            else if(pressedKey == keys.downArrow) {
+              module.verbose('Down key pressed, changing active item');
+              newIndex = (currentIndex + 1 >= resultSize)
+                ? currentIndex
+                : currentIndex + 1
+              ;
+              $item
+                .removeClass(selectedClass)
+                .eq(newIndex)
+                  .addClass(selectedClass)
+              ;
+              event.preventDefault();
+            }
+          }
+          else {
+            if(pressedKey == keys.enter) {
+              module.show();
+            }
+          }
+        },
+
         event: {
           test: {
             toggle: function(event) {
@@ -4698,17 +4780,22 @@ $.fn.dropdown = function(parameters) {
 
             mouseenter: function(event) {
               var
-                $currentMenu = $(this).find(selector.menu),
+                $currentMenu = $(this).find(selector.submenu),
                 $otherMenus  = $(this).siblings(selector.item).children(selector.menu)
               ;
-              if( $currentMenu.size() > 0 ) {
+              if($currentMenu.length > 0  || $otherMenus.length > 0) {
                 clearTimeout(module.itemTimer);
-                module.itemTimer = setTimeout(function() {
-                  module.animate.hide(false, $otherMenus);
-                  module.verbose('Showing sub-menu', $currentMenu);
-                  module.animate.show(false,  $currentMenu);
+                  module.itemTimer = setTimeout(function() {
+                  if($otherMenus.length > 0) {
+                    module.animate.hide(false, $otherMenus.filter(':visible'));
+                  }
+                  if($currentMenu.length > 0) {
+                    module.verbose('Showing sub-menu', $currentMenu);
+                    module.animate.show(false, $currentMenu);
+                  }
                 }, settings.delay.show * 2);
                 event.preventDefault();
+                event.stopPropagation();
               }
             },
 
@@ -4733,7 +4820,9 @@ $.fn.dropdown = function(parameters) {
                   : $choice.text(),
                 value   = ( $choice.data(metadata.value) !== undefined)
                   ? $choice.data(metadata.value)
-                  : text.toLowerCase(),
+                  : (typeof text === 'string')
+                      ? text.toLowerCase()
+                      : text,
                 callback = function() {
                   module.determine.selectAction(text, value);
                   $.proxy(settings.onChange, element)(value, text);
@@ -4849,7 +4938,7 @@ $.fn.dropdown = function(parameters) {
               : $module.data(metadata.value)
             ;
           },
-          item: function(value) {
+          item: function(value, strict) {
             var
               $selectedItem = false
             ;
@@ -4859,6 +4948,13 @@ $.fn.dropdown = function(parameters) {
                 ? module.get.value()
                 : module.get.text()
             ;
+            if(strict === undefined && value === '') {
+              module.debug('Ambiguous dropdown value using strict type check', value);
+              strict = true;
+            }
+            else {
+              strict = strict || false;
+            }
             if(value !== undefined) {
               $item
                 .each(function() {
@@ -4869,13 +4965,25 @@ $.fn.dropdown = function(parameters) {
                       : $choice.text(),
                     optionValue   = ( $choice.data(metadata.value) !== undefined )
                       ? $choice.data(metadata.value)
-                      : optionText.toLowerCase()
+                      : (typeof optionText === 'string')
+                        ? optionText.toLowerCase()
+                        : optionText
                   ;
-                  if( optionValue == value ) {
-                    $selectedItem = $(this);
+                  if(strict) {
+                    if( optionValue === value ) {
+                      $selectedItem = $(this);
+                    }
+                    else if( !$selectedItem && optionText === value ) {
+                      $selectedItem = $(this);
+                    }
                   }
-                  else if( !$selectedItem && optionText == value ) {
-                    $selectedItem = $(this);
+                  else {
+                    if( optionValue == value ) {
+                      $selectedItem = $(this);
+                    }
+                    else if( !$selectedItem && optionText == value ) {
+                      $selectedItem = $(this);
+                    }
                   }
                 })
               ;
@@ -4933,7 +5041,10 @@ $.fn.dropdown = function(parameters) {
           value: function(value) {
             module.debug('Adding selected value to hidden input', value, $input);
             if($input.size() > 0) {
-              $input.val(value);
+              $input
+                .val(value)
+                .trigger('change')
+              ;
             }
             else {
               $module.data(metadata.value, value);
@@ -4982,8 +5093,8 @@ $.fn.dropdown = function(parameters) {
           },
           animated: function($subMenu) {
             return ($subMenu)
-              ? $subMenu.is(':animated') || $subMenu.transition('is animating')
-              : $menu.is(':animated') || $menu.transition('is animating')
+              ? $subMenu.is(':animated') || $subMenu.transition && $subMenu.transition('is animating')
+              : $menu.is(':animated') || $menu.transition && $menu.transition('is animating')
             ;
           },
           visible: function($subMenu) {
@@ -5347,7 +5458,7 @@ $.fn.dropdown = function(parameters) {
     })
   ;
 
-  return (returnedValue)
+  return (returnedValue !== undefined)
     ? returnedValue
     : this
   ;
@@ -5358,8 +5469,8 @@ $.fn.dropdown.settings = {
   name        : 'Dropdown',
   namespace   : 'dropdown',
 
+  debug       : false,
   verbose     : true,
-  debug       : true,
   performance : true,
 
   on          : 'click',
@@ -5392,10 +5503,11 @@ $.fn.dropdown.settings = {
   },
 
   selector : {
-    menu  : '.menu',
-    item  : '.menu > .item',
-    text  : '> .text',
-    input : '> input[type="hidden"]'
+    menu    : '.menu',
+    submenu : '> .menu',
+    item    : '.menu > .item',
+    text    : '> .text',
+    input   : '> input[type="hidden"]'
   },
 
   className : {
@@ -5403,6 +5515,7 @@ $.fn.dropdown.settings = {
     placeholder : 'default',
     disabled    : 'disabled',
     visible     : 'visible',
+    selected    : 'selected',
     selection   : 'selection'
   }
 
@@ -5412,11 +5525,12 @@ $.fn.dropdown.settings = {
 $.extend( $.easing, {
   easeOutQuad: function (x, t, b, c, d) {
     return -c *(t/=d)*(t-2) + b;
-  },
+  }
 });
 
 
 })( jQuery, window , document );
+
 /*
  * # Semantic - Modal
  * http://github.com/semantic-org/semantic-ui/
@@ -5443,6 +5557,12 @@ $.fn.modal = function(parameters) {
     query           = arguments[0],
     methodInvoked   = (typeof query == 'string'),
     queryArguments  = [].slice.call(arguments, 1),
+
+    requestAnimationFrame = window.requestAnimationFrame
+      || window.mozRequestAnimationFrame
+      || window.webkitRequestAnimationFrame
+      || window.msRequestAnimationFrame
+      || function(callback) { setTimeout(callback, 0); },
 
     returnedValue
   ;
@@ -5507,8 +5627,7 @@ $.fn.modal = function(parameters) {
             .dimmer('get dimmer')
           ;
 
-          $otherModals = $module.siblings(selector.modal);
-          $allModals   = $otherModals.add($module);
+          module.refreshSelectors();
 
           module.verbose('Attaching close events', $close);
           $close
@@ -5548,6 +5667,11 @@ $.fn.modal = function(parameters) {
           module.set.screenHeight();
           module.set.type();
           module.set.position();
+        },
+
+        refreshSelectors: function() {
+          $otherModals = $module.siblings(selector.modal);
+          $allModals   = $otherModals.add($module);
         },
 
         attachEvents: function(selector, event) {
@@ -5650,45 +5774,62 @@ $.fn.modal = function(parameters) {
           module.showModal(callback);
         },
 
+        onlyVisible: function() {
+          module.refreshSelectors();
+          return module.is.active() && $otherModals.filter(':visible').size() === 0;
+        },
+
+        othersVisible: function() {
+          module.refreshSelectors();
+          return $otherModals.filter(':visible').size() > 0;
+        },
+
         showModal: function(callback) {
+          if(module.is.active()) {
+            module.debug('Modal is already visible');
+            return;
+          }
+
           callback = $.isFunction(callback)
             ? callback
             : function(){}
           ;
-          if( !module.is.active() ) {
-            module.cacheSizes();
-            module.set.position();
-            module.set.screenHeight();
-            module.set.type();
 
-            if( $otherModals.filter(':visible').size() > 0 && !settings.allowMultiple) {
-              module.debug('Other modals visible, queueing show animation');
-              module.hideOthers(module.showModal);
-            }
-            else {
-              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
-                module.debug('Showing modal with css animations');
-                $module
-                  .transition(settings.transition + ' in', settings.duration, function() {
-                    module.set.active();
-                    callback();
-                  })
-                ;
-              }
-              else {
-                module.debug('Showing modal with javascript');
-                $module
-                  .fadeIn(settings.duration, settings.easing, function() {
-                    module.set.active();
-                    callback();
-                  })
-                ;
-              }
-              $.proxy(settings.onShow, element)();
-            }
+          module.save.focus();
+          module.add.keyboardShortcuts();
+
+          if(module.cache === undefined) {
+            module.cacheSizes();
+          }
+          module.set.position();
+          module.set.screenHeight();
+          module.set.type();
+
+          if(module.othersVisible()  && !settings.allowMultiple) {
+            module.debug('Other modals visible, queueing show animation');
+            module.hideOthers(module.showModal);
           }
           else {
-            module.debug('Modal is already visible');
+            $.proxy(settings.onShow, element)();
+
+            var transitionCallback = function() {
+              module.set.active();
+              $.proxy(settings.onVisible, element)();
+              callback();
+            };
+
+            if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
+              module.debug('Showing modal with css animations');
+              $module
+                .transition(settings.transition + ' in', settings.duration, transitionCallback)
+              ;
+            }
+            else {
+              module.debug('Showing modal with javascript');
+              $module
+                .fadeIn(settings.duration, settings.easing, transitionCallback)
+              ;
+            }
           }
         },
 
@@ -5698,7 +5839,7 @@ $.fn.modal = function(parameters) {
             $dimmable.dimmer('show');
           }
           else {
-            module.debug('Dimmer already visible');
+            module.debug('Dimmer is already visible');
           }
         },
 
@@ -5707,7 +5848,8 @@ $.fn.modal = function(parameters) {
             ? callback
             : function(){}
           ;
-          if($allModals.filter(':visible').size() <= 1) {
+          module.refreshSelectors();
+          if(module.onlyVisible()) {
             module.hideDimmer();
           }
           module.hideModal(callback);
@@ -5715,7 +5857,7 @@ $.fn.modal = function(parameters) {
 
         hideDimmer: function() {
           if( !module.is.active() ) {
-            module.debug('Dimmer is not visible cannot hide');
+            module.debug('Dimmer is already hidden');
             return;
           }
           module.debug('Hiding dimmer');
@@ -5736,35 +5878,39 @@ $.fn.modal = function(parameters) {
         },
 
         hideModal: function(callback) {
+          if(!module.is.active()) {
+            module.debug('Modal is already hidden');
+            return;
+          }
+
           callback = $.isFunction(callback)
             ? callback
             : function(){}
           ;
-          if( !module.is.active() ) {
-            module.debug('Cannot hide modal it is not active');
-            return;
-          }
-          module.debug('Hiding modal');
+
+          module.restore.focus();
           module.remove.keyboardShortcuts();
+
+          $.proxy(settings.onHide, element)();
+
+          var transitionCallback = function() {
+            module.remove.active();
+            $.proxy(settings.onHidden, element)();
+            callback();
+          };
+
           if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
+            module.debug('Hiding modal with css animations');
             $module
-              .transition(settings.transition + ' out', settings.duration, function() {
-                module.remove.active();
-                module.restore.focus();
-                callback();
-              })
+              .transition(settings.transition + ' out', settings.duration, transitionCallback)
             ;
           }
           else {
+            module.debug('Hiding modal with javascript');
             $module
-              .fadeOut(settings.duration, settings.easing, function() {
-                module.remove.active();
-                module.restore.focus();
-                callback();
-              })
+              .fadeOut(settings.duration, settings.easing, transitionCallback)
             ;
           }
-          $.proxy(settings.onHide, element)();
         },
 
         hideAll: function(callback) {
@@ -5772,7 +5918,7 @@ $.fn.modal = function(parameters) {
             ? callback
             : function(){}
           ;
-          if( $allModals.is(':visible') ) {
+          if( $module.is(':visible') || module.othersVisible() ) {
             module.debug('Hiding all visible modals');
             module.hideDimmer();
             $allModals
@@ -5787,7 +5933,7 @@ $.fn.modal = function(parameters) {
             ? callback
             : function(){}
           ;
-          if( $otherModals.is(':visible') ) {
+          if( module.othersVisible() ) {
             module.debug('Hiding other modals');
             $otherModals
               .filter(':visible')
@@ -5880,16 +6026,21 @@ $.fn.modal = function(parameters) {
             }
           },
           active: function() {
-            module.add.keyboardShortcuts();
-            module.save.focus();
-            $module
-              .addClass(className.active)
-            ;
+            $module.addClass(className.active);
+
             if(settings.closable) {
               $dimmer
                 .off('click' + eventNamespace)
                 .on('click' + eventNamespace, module.event.click)
               ;
+            }
+
+            if(settings.autofocus) {
+                var $inputs    = $module.find(':input:visible');
+                var $autofocus = $inputs.filter('[autofocus]');
+                var $input     = $autofocus.length ? $autofocus : $inputs;
+
+                $input.first().focus();
             }
           },
           scrolling: function() {
@@ -5928,6 +6079,7 @@ $.fn.modal = function(parameters) {
         },
 
         setting: function(name, value) {
+          module.debug('Changing setting', name, value);
           if( $.isPlainObject(name) ) {
             $.extend(true, settings, name);
           }
@@ -6107,17 +6259,18 @@ $.fn.modal.settings = {
   name          : 'Modal',
   namespace     : 'modal',
 
-  debug         : true,
+  debug         : false,
   verbose       : true,
   performance   : true,
 
   allowMultiple : true,
   detachable    : true,
   closable      : true,
+  autofocus     : true,
   context       : 'body',
 
   duration      : 500,
-  easing        : 'easeOutExpo',
+  easing        : 'easeOutQuad',
   offset        : 0,
   transition    : 'scale',
 
@@ -6125,6 +6278,10 @@ $.fn.modal.settings = {
 
   onShow        : function(){},
   onHide        : function(){},
+
+  onVisible     : function(){},
+  onHidden      : function(){},
+
   onApprove     : function(){ return true; },
   onDeny        : function(){ return true; },
 
@@ -6144,8 +6301,15 @@ $.fn.modal.settings = {
   }
 };
 
+// Adds easing
+$.extend( $.easing, {
+  easeOutQuad: function (x, t, b, c, d) {
+    return -c *(t/=d)*(t-2) + b;
+  }
+});
 
 })( jQuery, window , document );
+
 /*
  * # Semantic - Nag
  * http://github.com/jlukic/semantic-ui/
@@ -6630,8 +6794,8 @@ $.fn.nag.settings = {
 
   name        : 'Nag',
 
+  debug       : false,
   verbose     : true,
-  debug       : true,
   performance : true,
 
   namespace   : 'Nag',
@@ -6951,6 +7115,7 @@ $.fn.popup = function(parameters) {
           $popup
             .remove()
           ;
+          $.proxy(settings.onRemove, $popup)();
         },
 
         save: {
@@ -7472,12 +7637,13 @@ $.fn.popup = function(parameters) {
 $.fn.popup.settings = {
 
   name           : 'Popup',
-  debug          : true,
+  debug          : false,
   verbose        : true,
   performance    : true,
   namespace      : 'popup',
 
   onCreate       : function(){},
+  onRemove       : function(){},
   onShow         : function(){},
   onHide         : function(){},
 
@@ -7497,7 +7663,7 @@ $.fn.popup.settings = {
   preserve       : false,
 
   duration       : 250,
-  easing         : 'easeOutQuint',
+  easing         : 'easeOutQuad',
   transition     : 'scale',
 
   distanceAway   : 0,
@@ -7545,6 +7711,14 @@ $.fn.popup.settings = {
   }
 
 };
+
+// Adds easing
+$.extend( $.easing, {
+  easeOutQuad: function (x, t, b, c, d) {
+    return -c *(t/=d)*(t-2) + b;
+  }
+});
+
 
 })( jQuery, window , document );
 
@@ -7924,7 +8098,7 @@ $.fn.rating.settings = {
   namespace     : 'rating',
 
   verbose       : true,
-  debug         : true,
+  debug         : false,
   performance   : true,
 
   initialRating : 0,
@@ -8095,7 +8269,7 @@ $.fn.search = function(source, parameters) {
           if($results.filter(':visible').size() > 0) {
             if(keyCode == keys.enter) {
               module.verbose('Enter key pressed, selecting active result');
-              if( $result.filter('.' + activeClass).exists() ) {
+              if( $result.filter('.' + activeClass).size() > 0 ) {
                 $.proxy(module.results.select, $result.filter('.' + activeClass) )();
                 event.preventDefault();
                 return false;
@@ -8545,7 +8719,7 @@ $.fn.search.settings = {
   name           : 'Search Module',
   namespace      : 'search',
 
-  debug          : true,
+  debug          : false,
   verbose        : true,
   performance    : true,
 
@@ -9467,7 +9641,7 @@ $.fn.shape.settings = {
   name : 'Shape',
 
   // debug content outputted to console
-  debug      : true,
+  debug      : false,
 
   // verbose debug output
   verbose    : true,
@@ -9989,8 +10163,8 @@ $.fn.sidebar.settings = {
   name        : 'Sidebar',
   namespace   : 'sidebar',
 
+  debug       : false,
   verbose     : true,
-  debug       : true,
   performance : true,
 
   useCSS      : true,
@@ -10673,8 +10847,8 @@ $.fn.sidebar.settings = {
   $.fn.tab.settings = {
 
     name        : 'Tab',
+    debug       : false,
     verbose     : true,
-    debug       : true,
     performance : true,
     namespace   : 'tab',
 
@@ -10963,7 +11137,7 @@ $.fn.transition = function() {
             var
               displayType = module.get.displayType()
             ;
-            if(displayType !== 'block') {
+            if(displayType !== 'block' && displayType !== 'none') {
               module.verbose('Setting final visibility to', displayType);
               $module
                 .css({
@@ -11197,7 +11371,7 @@ $.fn.transition = function() {
               animations  = {
                 'animation'       :'animationend',
                 'OAnimation'      :'oAnimationEnd',
-                'MozAnimation'    :'mozAnimationEnd',
+                'MozAnimation'    :'animationend',
                 'WebkitAnimation' :'webkitAnimationEnd'
               },
               animation
@@ -11963,7 +12137,7 @@ $.fn.video.settings = {
   name        : 'Video',
   namespace   : 'video',
 
-  debug       : true,
+  debug       : false,
   verbose     : true,
   performance : true,
 
